@@ -16,26 +16,32 @@
 
 package com.ritesh.idea.plugin.diff;
 
+import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vcs.AbstractVcs;
 import com.intellij.openapi.vcs.ProjectLevelVcsManager;
+import com.intellij.openapi.vcs.VcsDataKeys;
+import com.intellij.openapi.vcs.VcsKey;
 import com.ritesh.idea.plugin.state.Configuration;
 import git4idea.GitVcs;
 import org.jetbrains.idea.svn.SvnVcs;
+
+import java.util.Objects;
 
 /**
  * @author ritesh
  */
 public class VcsDiffProviderFactory {
-    public static IVcsDiffProvider getVcsDiffProvider(Project project, Configuration configuration) {
+    public static IVcsDiffProvider getVcsDiffProvider(Project project, Configuration configuration, AnActionEvent action) {
         AbstractVcs vcsFor = ProjectLevelVcsManager.getInstance(project).getVcsFor(project.getProjectFile());
         if (configuration.useRbTools == Boolean.TRUE) {
             return new RbToolsDiffProvider(configuration.url, configuration.username, configuration.password,
                     configuration.rbtPath, vcsFor);
         }
-        if (vcsFor instanceof SvnVcs) {
+        VcsKey vcsKey = action.getData(VcsDataKeys.VCS);
+        if (!Objects.isNull(vcsKey) && "svn".equals(vcsKey.getName())) {
             return new SvnDiffProvider();
-        } else if (vcsFor instanceof GitVcs) {
+        } else if (!Objects.isNull(vcsKey) && "git".equals(vcsKey.getName())) {
             return new GitDiffProvider();
         }
         return null;

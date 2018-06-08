@@ -29,13 +29,14 @@ import com.ritesh.idea.plugin.ui.ExceptionHandler;
 import com.ritesh.idea.plugin.ui.TaskUtil;
 import com.ritesh.idea.plugin.ui.panels.LoginPanel;
 import com.ritesh.idea.plugin.util.ThrowableFunction;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import javax.swing.JComponent;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.mutable.MutableObject;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.Nullable;
+
+import javax.swing.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
 /**
  * @author Ritesh
@@ -71,7 +72,7 @@ public class SettingsPage implements Configurable {
         if (oldConfigurationState != null) {
             loginPanel.setUrl(oldConfigurationState.url);
             loginPanel.setUsername(oldConfigurationState.username);
-            loginPanel.setPassword(oldConfigurationState.username);
+            loginPanel.setPassword(oldConfigurationState.password);
             loginPanel.setUseRbTools(oldConfigurationState.useRbTools);
             loginPanel.setUseRbToolPath(oldConfigurationState.rbtPath);
         }
@@ -100,7 +101,7 @@ public class SettingsPage implements Configurable {
     public void apply() throws ConfigurationException {
         Configuration configuration = new Configuration(
                 loginPanel.getUrl(), loginPanel.getUsername(), loginPanel.getPassword(), loginPanel.useRbTools(), loginPanel.rbtPath());
-        ReviewDataProvider.saveConfigurationState(project, configuration);
+        ConfigurationPersistance.getInstance(project).loadState(configuration);
         ReviewDataProvider.reset();
     }
 
@@ -126,7 +127,7 @@ public class SettingsPage implements Configurable {
             public Void throwableCall(ProgressIndicator params) throws Exception {
                 try {
                     params.setIndeterminate(true);
-                    ReviewDataProvider
+                    ReviewDataProvider.getInstance(project)
                             .testConnection(loginPanel.getUrl(), loginPanel.getUsername(), loginPanel.getPassword());
                     // The task was not cancelled and is successful
                     connException.setValue(Boolean.TRUE);

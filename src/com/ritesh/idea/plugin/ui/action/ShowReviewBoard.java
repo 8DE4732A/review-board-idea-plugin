@@ -37,6 +37,8 @@ import com.ritesh.idea.plugin.ui.TaskUtil;
 import com.ritesh.idea.plugin.ui.panels.DraftReviewPanel;
 import com.ritesh.idea.plugin.util.ThrowableFunction;
 
+import java.nio.charset.Charset;
+
 import static org.apache.commons.lang.StringUtils.isEmpty;
 
 /**
@@ -49,7 +51,7 @@ public class ShowReviewBoard extends AnAction {
         try {
             final Project project = e.getProject();
             final IVcsDiffProvider vcsDiffProvider =
-                    VcsDiffProviderFactory.getVcsDiffProvider(project, ReviewDataProvider.getConfiguration(project));
+                    VcsDiffProviderFactory.getVcsDiffProvider(project, ReviewDataProvider.getConfiguration(project), e);
             ApplicationManager.getApplication().runWriteAction(new Runnable() {
                 public void run() {
                     FileDocumentManager.getInstance().saveAllDocuments();

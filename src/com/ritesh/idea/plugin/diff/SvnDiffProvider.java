@@ -19,21 +19,24 @@ package com.ritesh.idea.plugin.diff;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vcs.FilePath;
 import com.intellij.openapi.vcs.VcsDataKeys;
 import com.intellij.openapi.vcs.VcsException;
 import com.intellij.openapi.vcs.changes.Change;
 import com.intellij.openapi.vcs.changes.ChangeList;
+import com.intellij.openapi.vcs.history.VcsRevisionNumber;
 import com.intellij.openapi.vcs.versionBrowser.CommittedChangeList;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.idea.svn.SvnVcs;
 import org.jetbrains.idea.svn.api.BaseSvnClient;
-import org.jetbrains.idea.svn.api.Revision;
-import org.jetbrains.idea.svn.api.Target;
 import org.jetbrains.idea.svn.commandLine.Command;
 import org.jetbrains.idea.svn.commandLine.CommandExecutor;
 import org.jetbrains.idea.svn.commandLine.SvnCommandName;
 import org.jetbrains.idea.svn.history.LogEntry;
 import org.jetbrains.idea.svn.history.LogEntryConsumer;
+import org.tmatesoft.svn.core.SVNException;
+import org.tmatesoft.svn.core.wc.SVNRevision;
+import org.tmatesoft.svn.core.wc2.SvnTarget;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -49,6 +52,11 @@ public class SvnDiffProvider extends BaseSvnClient implements IVcsDiffProvider {
 
     @Override
     public boolean isFromRevision(Project project, AnActionEvent action) throws VcsException {
+        VcsRevisionNumber[] versionNumbers = action.getData(VcsDataKeys.VCS_REVISION_NUMBERS);
+        if (versionNumbers != null) {
+            return true;
+        }
+
         ChangeList[] data = action.getData(VcsDataKeys.CHANGE_LISTS);
         if (data != null && data.length > 0 && data[0] instanceof CommittedChangeList) {
             return true;
@@ -61,9 +69,11 @@ public class SvnDiffProvider extends BaseSvnClient implements IVcsDiffProvider {
     public String generateDiff(Project project, AnActionEvent action) throws VcsException {
         String diffContent;
         if (isFromRevision(project, action)) {
-            ChangeList[] data = action.getData(VcsDataKeys.CHANGE_LISTS);
-            diffContent = fromRevisions(project, project.getBaseDir(), ((CommittedChangeList) data[data.length - 1]).getNumber(),
-                    ((CommittedChangeList) data[0]).getNumber());
+            VcsRevisionNumber[] data = action.getData(VcsDataKeys.VCS_REVISION_NUMBERS);
+            FilePath place = action.getData(VcsDataKeys.FILE_PATH);
+
+            diffContent = fromRevisions(project, place.getVirtualFile(),Long.parseLong(data[data.length - 1].asString()),
+                    Long.parseLong(data[0].asString()));
         } else {
             final Change[] changes = action.getData(VcsDataKeys.CHANGES);
             diffContent = fromHead(project, project.getBaseDir(), changes);
@@ -74,13 +84,13 @@ public class SvnDiffProvider extends BaseSvnClient implements IVcsDiffProvider {
     private String fromRevisions(Project project, VirtualFile root, long beforeRevisionNumber,
                                  long afterRevisionNumber) throws VcsException {
         SvnVcs svnVcs = SvnVcs.getInstance(project);
-        Target svnTarget = Target.on(new File(root.getPath()));
+        SvnTarget svnTarget = SvnTarget.fromFile(new File(root.getPath()));
 
         final long[] lastRevisionNumber = new long[1];
-        svnVcs.getFactory().createHistoryClient().doLog(svnTarget, Revision.of(beforeRevisionNumber)
-                , Revision.of(0), false, true, false, 2, null, new LogEntryConsumer() {
+        svnVcs.getFactory().createHistoryClient().doLog(svnTarget, SVNRevision.create(beforeRevisionNumber)
+                , SVNRevision.create(0), false, true, false, 2, null, new LogEntryConsumer() {
             @Override
-            public void consume(LogEntry logEntry) {
+            public void consume(LogEntry logEntry) throws SVNException {
                 lastRevisionNumber[0] = logEntry.getRevision();
             }
         });
@@ -101,7 +111,7 @@ public class SvnDiffProvider extends BaseSvnClient implements IVcsDiffProvider {
         //TODO: publish only selected changes attribute (need to handle deleted files)
         SvnVcs svnVcs = SvnVcs.getInstance(project);
 
-        Target svnTarget = Target.on(new File(root.getPath()));
+        SvnTarget svnTarget = SvnTarget.fromFile(new File(root.getPath()));
         List<String> parameters = new ArrayList<>();
         /*for (Change change : changes) {
             if (change.getVirtualFile() != null) {

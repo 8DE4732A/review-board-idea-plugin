@@ -16,12 +16,19 @@
 
 package com.ritesh.idea.plugin.ui.panels;
 
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.ui.components.JBCheckBox;
+import com.ritesh.idea.plugin.reviewboard.ReviewDataProvider;
 
 import javax.swing.*;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.Properties;
+import java.util.ResourceBundle;
 
 /**
  * @author Ritesh
@@ -35,6 +42,7 @@ public class LoginPanel {
     private JBCheckBox useRbTools;
     private JTextField rbtPath;
     private JCheckBox useRbtPath;
+    private static final Logger LOG = Logger.getInstance(LoginPanel.class);
 
     public LoginPanel() {
         useRbTools.addItemListener(new ItemListener() {
@@ -63,6 +71,27 @@ public class LoginPanel {
                 }
             }
         });
+        url.setText("https://rb.zhonganonline.com");
+        url.setEditable(false);
+        useRbTools.setSelected(true);
+        useRbTools.setEnabled(false);
+        rbtPath.setText("D:\\RBTools\\bin\\rbt.cmd");
+        rbtPath.setEditable(false);
+        useRbtPath.setSelected(true);
+        useRbTools.setEnabled(false);
+        try {
+            InputStream in = new BufferedInputStream(new FileInputStream("D:\\rb_config.properties"));
+            Properties p = new Properties();
+            p.load(in);
+
+            String usernameStr = p.getProperty("username");
+            String passwordStr = p.getProperty("password");
+            username.setText(usernameStr);
+            password.setText(passwordStr);
+        } catch (Exception e) {
+            LOG.error(e);
+        }
+
     }
 
     public void addActionListener(ActionListener l) {

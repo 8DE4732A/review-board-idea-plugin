@@ -21,19 +21,25 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vcs.AbstractVcs;
+import com.intellij.openapi.vcs.FilePath;
 import com.intellij.openapi.vcs.VcsDataKeys;
 import com.intellij.openapi.vcs.VcsException;
+import com.intellij.openapi.vcs.VcsKey;
 import com.intellij.openapi.vcs.changes.ChangeList;
 import com.intellij.openapi.vcs.history.VcsRevisionNumber;
 import com.intellij.openapi.vcs.versionBrowser.CommittedChangeList;
+import org.apache.commons.compress.utils.CharsetNames;
 import org.jetbrains.idea.svn.SvnVcs;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Created by ritesh on 18/12/15.
@@ -79,12 +85,14 @@ public class RbToolsDiffProvider implements IVcsDiffProvider {
     @Override
     public String generateDiff(Project project, AnActionEvent action) throws VcsException {
         VcsRevision revision = revision(project, action);
+        FilePath place = action.getData(VcsDataKeys.FILE_PATH);
+        VcsKey vcsKey = action.getData(VcsDataKeys.VCS);
         List<String> options = new ArrayList<>();
         try {
-            if (vcs instanceof SvnVcs) {
+            if (!Objects.isNull(vcsKey) && "svn".equals(vcsKey.getName())) {
                 options.addAll(Arrays.asList("--svn-show-copies-as-adds", "y"));
             }
-            return generateDiff(revision, project.getBaseDir().getPath(), options);
+            return generateDiff(revision, place.getPath().toString(), options);
         } catch (IOException e) {
             throw new VcsException(e);
         }
@@ -102,14 +110,13 @@ public class RbToolsDiffProvider implements IVcsDiffProvider {
                 commands.add(revision.toRevision());
         }
 
-        LOG.info("Running command : " + commands);
+        LOG.info("Running command : " + commands + "at Path : " + rootPath);
 
         ProcessBuilder builder = new ProcessBuilder(commands);
         builder.directory(new File(rootPath));
         builder.redirectErrorStream(true);
         Process process = builder.start();
-
-        String stdInput = CharStreams.toString(new InputStreamReader(process.getInputStream()));
+        String stdInput = CharStreams.toString(new InputStreamReader(process.getInputStream(), CharsetNames.UTF_8));
         String stdErrorInput = CharStreams.toString(new InputStreamReader(process.getErrorStream()));
         if (stdErrorInput.trim().isEmpty()) {
             return stdInput;

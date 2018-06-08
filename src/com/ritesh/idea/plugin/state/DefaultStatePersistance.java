@@ -16,11 +16,7 @@
 
 package com.ritesh.idea.plugin.state;
 
-import com.intellij.openapi.components.PersistentStateComponent;
-import com.intellij.openapi.components.ServiceManager;
-import com.intellij.openapi.components.State;
-import com.intellij.openapi.components.Storage;
-import com.intellij.openapi.components.StorageScheme;
+import com.intellij.openapi.components.*;
 import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,7 +27,8 @@ import org.jetbrains.annotations.Nullable;
         name = "reviewBoardPluginDefaults",
         reloadable = true,
         storages = {
-                @Storage(value = "$PROJECT_CONFIG_DIR$/review_board_plugin_defaults_v0_1.xml",
+                @Storage(id = "default", file = "$PROJECT_FILE$"),
+                @Storage(id = "dir", file = "$PROJECT_CONFIG_DIR$/review_board_plugin_defaults_v0_1.xml",
                         scheme = StorageScheme.DIRECTORY_BASED)
         }
 )

@@ -16,25 +16,42 @@
 
 package com.ritesh.idea.plugin.state;
 
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.Properties;
+import java.util.ResourceBundle;
+
 /**
  * @author Ritesh
  */
 public class Configuration {
-    public String url;
+    public String url = "https://rb.zhonganonline.com";
     public String username;
     public String password;
-    public Boolean useRbTools;
-    public String rbtPath;
+    public Boolean useRbTools = Boolean.TRUE;
+    public String rbtPath = "D:\\RBTools\\bin\\rbt.cmd";
 
     public Configuration(String url, String username, String password, Boolean useRbTools, String rbtPath) {
-        this.url = url;
+//        this.url = url;
         this.username = username;
         this.password = password;
-        this.useRbTools = useRbTools;
-        this.rbtPath = rbtPath;
+//        this.useRbTools = useRbTools;
+//        this.rbtPath = rbtPath;
     }
 
     public Configuration() {
+        try {
+            InputStream in = new BufferedInputStream(new FileInputStream("D:\\rb_config.properties"));
+            Properties p = new Properties();
+            p.load(in);
+
+            String usernameStr = p.getProperty("username");
+            String passwordStr = p.getProperty("password");
+            this.username = usernameStr;
+            this.password = passwordStr;
+        } catch (Exception e) {
+        }
     }
 
     @Override

@@ -16,26 +16,20 @@
 
 package com.ritesh.idea.plugin.reviewboard;
 
-import com.intellij.credentialStore.CredentialAttributes;
-import com.intellij.credentialStore.Credentials;
-import com.intellij.ide.passwordSafe.PasswordSafe;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.ritesh.idea.plugin.diff.RbToolsDiffProvider;
 import com.ritesh.idea.plugin.exception.InvalidConfigurationException;
-import com.ritesh.idea.plugin.reviewboard.model.RBComments;
-import com.ritesh.idea.plugin.reviewboard.model.RBCreateReview;
-import com.ritesh.idea.plugin.reviewboard.model.RBDiffList;
-import com.ritesh.idea.plugin.reviewboard.model.RBFileDiff;
-import com.ritesh.idea.plugin.reviewboard.model.RBGroupList;
-import com.ritesh.idea.plugin.reviewboard.model.RBRepository;
-import com.ritesh.idea.plugin.reviewboard.model.RBReview;
-import com.ritesh.idea.plugin.reviewboard.model.RBReviewRequestList;
-import com.ritesh.idea.plugin.reviewboard.model.RBUserList;
+import com.ritesh.idea.plugin.reviewboard.model.*;
 import com.ritesh.idea.plugin.state.Configuration;
 import com.ritesh.idea.plugin.state.ConfigurationPersistance;
 import com.ritesh.idea.plugin.state.DefaultState;
 import com.ritesh.idea.plugin.state.DefaultStatePersistance;
 import com.ritesh.idea.plugin.util.Page;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.mutable.MutableFloat;
+
 import java.io.IOException;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
@@ -47,9 +41,6 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Future;
-import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.mutable.MutableFloat;
 
 /**
  * @author Ritesh
@@ -57,8 +48,7 @@ import org.apache.commons.lang.mutable.MutableFloat;
 public class ReviewDataProvider {
     private ReviewBoardClient client;
     private static Map<Project, ReviewDataProvider> reviewDataProviderMap = new WeakHashMap<>();
-    public static final String REVIEWBOARD_PASSWORD = "somekeyforstoring..ex:projectname";
-
+    private static final Logger LOG = Logger.getInstance(ReviewDataProvider.class);
 
     public static ReviewDataProvider getInstance(Project project) {
         Configuration configuration = getConfiguration(project);
@@ -78,9 +68,8 @@ public class ReviewDataProvider {
     public static Configuration getConfiguration(final Project project) {
         Configuration state = ConfigurationPersistance.getInstance(project).getState();
         if (state == null || StringUtils.isEmpty(state.url) || StringUtils.isEmpty(state.username) || StringUtils.isEmpty(state.password)) {
-            throw new InvalidConfigurationException("Review board not configured properly");
+            return new Configuration();
         }
-        state.password = getPassword(state.username);
         return state;
     }
 
@@ -122,8 +111,9 @@ public class ReviewDataProvider {
                                     String repositoryId, String diffContent) throws Exception {
         RBCreateReview reviewRequestApi = client.createReviewRequestApi(repositoryId);
         String reviewRequestId = String.valueOf(reviewRequestApi.review_request.id);
+        LOG.info(diffContent);
         client.draftDiffUploadApi(reviewRequestId, diffContent, "/");
-        client.updateReviewApi(reviewRequestId, description, summary, targetGroup, targetPeople, true);
+//        client.updateReviewApi(reviewRequestId, description, summary, targetGroup, targetPeople, true);
     }
 
     public void discardedReviewRequest(Review reviewRequest) throws Exception {
@@ -138,25 +128,7 @@ public class ReviewDataProvider {
         DefaultStatePersistance.getInstance(project).loadState(defaultState);
     }
 
-    public static void saveConfigurationState(Project project, Configuration configuration) {
-        savePassword(configuration.username, configuration.password);
-        ConfigurationPersistance.getInstance(project).loadState(configuration);
-    }
-
-    private static void savePassword(String username, String password) {
-        Credentials saveCredentials = new Credentials(username, password);
-        PasswordSafe.getInstance().set(new CredentialAttributes(REVIEWBOARD_PASSWORD, username,
-                ReviewDataProvider.class, false), saveCredentials);
-    }
-
-    private static String getPassword(String username) {
-        CredentialAttributes attributes = new CredentialAttributes(REVIEWBOARD_PASSWORD, username,
-                ReviewDataProvider.class, false);
-        return PasswordSafe.getInstance().getPassword(attributes);
-    }
-
-    public static void testConnection(String url, String username, String password) throws Exception {
-        ReviewBoardClient client = new ReviewBoardClient(url, username, password);
+    public void testConnection(String url, String username, String password) throws Exception {
         client.testConnection(url, username, password);
     }
 
@@ -239,7 +211,7 @@ public class ReviewDataProvider {
 
         if (diffList.total_results > 0) {
             final String revision = String.valueOf(diffList.diffs[0].revision);
-            final RBFileDiff fileDiff = client.fileDiffApi(review.id, revision);
+            RBFileDiff fileDiff = client.fileDiffApi(review.id, revision);
 
             for (final RBFileDiff.File file : fileDiff.files) {
                 final Review.File diffFile = new Review.File();
@@ -255,7 +227,7 @@ public class ReviewDataProvider {
                             @Override
                             public void run() {
                                 progress.progress("Loading file contents "
-                                        + FilenameUtils.getName(diffFile.srcFileName), progressF.floatValue());
+                                        + Paths.get(diffFile.srcFileName).getFileName(), progressF.floatValue());
                                 diffFile.srcFileContents = client.contents(file.links.original_file.href);
                                 progressF.setValue(progressF.floatValue() + 1.0f / diffList.total_results);
                                 progress.progress("Completed loading contents", progressF.floatValue());
@@ -268,7 +240,7 @@ public class ReviewDataProvider {
                             @Override
                             public void run() {
                                 progress.progress("Loading file contents "
-                                        + FilenameUtils.getName(diffFile.dstFileName), progressF.floatValue());
+                                        + Paths.get(diffFile.dstFileName).getFileName(), progressF.floatValue());
                                 diffFile.dstFileContents = client.contents(file.links.patched_file.href);
                                 progressF.setValue(progressF.floatValue() + 1.0f / diffList.total_results);
                                 progress.progress("Completed loading contents", progressF.floatValue());
